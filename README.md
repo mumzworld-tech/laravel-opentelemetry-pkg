@@ -83,7 +83,22 @@ OTEL_PHP_AUTOLOAD_ENABLED=true
 OTEL_INSTRUMENTATION_ENABLED=true
 ```
 
-### Step 4: Update Bootstrap (Optional but Recommended)
+### Step 4: Configure PHP Extension (Optional)
+
+If using the OpenTelemetry PHP extension, add to your PHP INI:
+
+```ini
+; docker/php/20-otel.ini
+[opentelemetry]
+otel.php_autoload_enabled=1
+otel.service_name="${OTEL_SERVICE_NAME}"
+otel.traces_exporter="${OTEL_TRACES_EXPORTER}"
+otel.exporter_otlp_endpoint="${OTEL_EXPORTER_OTLP_ENDPOINT}"
+otel.propagators="${OTEL_PROPAGATORS}"
+otel.instrumentation_enabled=true
+```
+
+### Step 5: Update Bootstrap (Optional but Recommended)
 
 Add OpenTelemetry initialization to your `bootstrap/app.php`:
 
@@ -99,7 +114,7 @@ use Illuminate\Foundation\Application;
 // ... rest of your bootstrap code
 ```
 
-### Step 5: Setup Docker Observability Stack
+### Step 6: Setup Docker Observability Stack
 
 Add the OpenTelemetry services to your `docker-compose.yml`:
 
@@ -122,7 +137,18 @@ services:
 
 Or merge the services directly into your existing `docker-compose.yml`.
 
-### Step 6: Start the Observability Stack
+**Important**: Make sure your app service has the OpenTelemetry environment variables:
+```yaml
+services:
+  app:
+    environment:
+      OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-my-laravel-app}
+      OTEL_TRACES_EXPORTER: ${OTEL_TRACES_EXPORTER:-otlp}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
+      OTEL_PROPAGATORS: ${OTEL_PROPAGATORS:-baggage,tracecontext}
+```
+
+### Step 7: Start the Observability Stack
 
 ```bash
 docker-compose up -d otel-collector tempo grafana
