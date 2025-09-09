@@ -1,0 +1,41 @@
+# OpenTelemetry Collector configuration for trace processing
+receivers:
+  otlp:                          # Receive traces from Laravel app
+    protocols:
+      http:                      # Accept HTTP OTLP traces (port 4318)
+        endpoint: 0.0.0.0:4318
+      grpc:                      # Accept gRPC OTLP traces (port 4317)
+        endpoint: 0.0.0.0:4317
+
+processors:
+  batch:                         # Batch traces for better performance
+    timeout: 1s
+    send_batch_size: 1024
+  memory_limiter:                # Prevent memory issues
+    limit_mib: 512
+
+exporters:
+  otlphttp/tempo:                # Export traces to Tempo
+    endpoint: http://tempo:4317  # Tempo gRPC endpoint
+    tls:
+      insecure: true
+  logging:                       # Log traces for debugging
+    verbosity: detailed          # Detailed logging output
+  # Uncomment for Jaeger export
+  # jaeger:
+  #   endpoint: jaeger:14250
+  #   tls:
+  #     insecure: true
+
+service:
+  pipelines:
+    traces:                      # Trace processing pipeline
+      receivers: [otlp]          # Receive from Laravel via OTLP
+      processors: [memory_limiter, batch]  # Process traces
+      exporters: [otlphttp/tempo, logging] # Send to Tempo and logs
+  
+  extensions: [health_check]
+  
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133

@@ -1,0 +1,53 @@
+# OpenTelemetry Observability Stack
+# Add this to your existing docker-compose.yml or use as a separate stack
+
+services:
+  # OpenTelemetry Collector - receives traces from Laravel and forwards to Tempo
+  otel-collector:
+    image: ${OTEL_COLLECTOR_IMAGE:-otel/opentelemetry-collector:0.101.0}
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./docker/opentelemetry/otel-collector/config.yaml:/etc/otel-collector-config.yaml:ro
+    ports:
+      - "${OTEL_COLLECTOR_HTTP_PORT:-4318}:4318"  # HTTP OTLP receiver
+      - "${OTEL_COLLECTOR_GRPC_PORT:-4317}:4317"  # gRPC OTLP receiver
+      - "13133:13133"  # Health check endpoint
+    environment:
+      - OTEL_RESOURCE_ATTRIBUTES=service.name=otel-collector
+    networks:
+      - app-network
+
+  # Tempo - stores and queries OpenTelemetry traces
+  tempo:
+    image: ${TEMPO_IMAGE:-grafana/tempo:2.4.1}
+    command: ["-config.file=/etc/tempo.yaml"]
+    volumes:
+      - ./docker/opentelemetry/tempo/tempo.yaml:/etc/tempo.yaml:ro
+      - tempo-data:/var/tempo
+    ports:
+      - "${TEMPO_PORT:-3200}:3200"  # HTTP API for Grafana queries
+    networks:
+      - app-network
+
+  # Grafana - visualizes OpenTelemetry traces from Tempo
+  grafana:
+    image: ${GRAFANA_IMAGE:-grafana/grafana:10.4.6}
+    ports:
+      - "${GRAFANA_PORT:-3000}:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_INSTALL_PLUGINS=grafana-clock-panel
+    volumes:
+      - ./docker/opentelemetry/grafana/provisioning:/etc/grafana/provisioning
+      - grafana-data:/var/lib/grafana
+    networks:
+      - app-network
+
+volumes:
+  tempo-data:
+  grafana-data:
+
+networks:
+  app-network:
+    external: true
