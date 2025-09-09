@@ -22,7 +22,7 @@ This guide will help you migrate your existing OpenTelemetry implementation to u
 
 2. **Install the package:**
 ```bash
-cd /Users/sahibmmz/Projects/mmz/backend/ratings-and-reviews
+cd your-laravel-project
 composer require mumzworld/laravel-opentelemetry:^1.0
 ```
 
@@ -303,12 +303,12 @@ Before migration, ensure the package is available on GitHub:
 1. **Create GitHub repository**: `mumzworld/laravel-opentelemetry`
 2. **Initialize and push package code**:
    ```bash
-   cd /Users/sahibmmz/Projects/mmz/backend/laravel-opentelemetry
+   cd your-package-directory
    git init
    git add .
    git commit -m "Initial release v1.0.0"
    git branch -M main
-   git remote add origin https://github.com/mumzworld/laravel-opentelemetry.git
+   git remote add origin https://github.com/sahib-mmz/mumzworld-laravel-opentelemetry.git
    git push -u origin main
    ```
 

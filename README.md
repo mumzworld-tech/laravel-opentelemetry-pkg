@@ -35,7 +35,7 @@ Add to your `composer.json`:
     "repositories": [
         {
             "type": "vcs",
-            "url": "https://github.com/mumzworld/laravel-opentelemetry"
+            "url": "https://github.com/sahib-mmz/mumzworld-laravel-opentelemetry"
         }
     ],
     "require": {
