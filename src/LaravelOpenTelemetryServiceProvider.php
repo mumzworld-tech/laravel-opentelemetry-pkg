@@ -47,6 +47,9 @@ class LaravelOpenTelemetryServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Auto-configure OpenTelemetry environment variables if enabled
+        $this->configureOpenTelemetry();
+
         // Publish configuration file
         $this->publishes([
             __DIR__ . '/Config/opentelemetry.php' => config_path('opentelemetry.php'),
@@ -71,5 +74,55 @@ class LaravelOpenTelemetryServiceProvider extends ServiceProvider
         $this->publishes([
             __DIR__ . '/../README.md' => base_path('docs/opentelemetry.md'),
         ], 'opentelemetry-docs');
+
+        // Publish test routes (optional, for development/testing)
+        $this->publishes([
+            __DIR__ . '/Routes/test.php' => base_path('routes/opentelemetry-test.php'),
+        ], 'opentelemetry-test-routes');
+    }
+
+    /**
+     * Auto-configure OpenTelemetry environment variables
+     *
+     * @return void
+     */
+    protected function configureOpenTelemetry(): void
+    {
+        if (!config('opentelemetry.enabled', true)) {
+            return;
+        }
+
+        // Set OpenTelemetry environment variables for the PHP extension
+        $this->setEnvIfNotSet('OTEL_SERVICE_NAME', config('opentelemetry.service.name'));
+        $this->setEnvIfNotSet('OTEL_TRACES_EXPORTER', config('opentelemetry.traces.exporter'));
+        $this->setEnvIfNotSet('OTEL_EXPORTER_OTLP_ENDPOINT', config('opentelemetry.exporter.otlp.endpoint'));
+        $this->setEnvIfNotSet('OTEL_EXPORTER_OTLP_PROTOCOL', config('opentelemetry.exporter.otlp.protocol'));
+        $this->setEnvIfNotSet('OTEL_PROPAGATORS', config('opentelemetry.propagators'));
+        $this->setEnvIfNotSet('OTEL_TRACES_SAMPLER', config('opentelemetry.traces.sampler'));
+        $this->setEnvIfNotSet('OTEL_TRACES_SAMPLER_ARG', (string) config('opentelemetry.traces.sampler_arg'));
+        
+        // Build resource attributes
+        $resourceAttributes = [];
+        foreach (config('opentelemetry.resource_attributes', []) as $key => $value) {
+            $resourceAttributes[] = "{$key}={$value}";
+        }
+        if (!empty($resourceAttributes)) {
+            $this->setEnvIfNotSet('OTEL_RESOURCE_ATTRIBUTES', implode(',', $resourceAttributes));
+        }
+    }
+
+    /**
+     * Set environment variable if not already set
+     *
+     * @param string $key
+     * @param string $value
+     * @return void
+     */
+    protected function setEnvIfNotSet(string $key, string $value): void
+    {
+        if (!isset($_ENV[$key]) && $value !== null) {
+            $_ENV[$key] = $value;
+            putenv("{$key}={$value}");
+        }
     }
 }

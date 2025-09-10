@@ -1,34 +1,50 @@
 # Laravel OpenTelemetry Package
 
-A comprehensive OpenTelemetry integration package for Laravel applications with complete observability stack including tracing, metrics, and visualization.
+A comprehensive OpenTelemetry integration package for Laravel applications that provides complete observability through distributed tracing, metrics collection, and visualization. This package enables you to monitor your application's performance, track requests across microservices, and identify bottlenecks in your Laravel application.
+
+**Learn more about OpenTelemetry:**
+- [OpenTelemetry Official Documentation](https://opentelemetry.io/docs/)
+- [OpenTelemetry PHP Documentation](https://opentelemetry.io/docs/languages/php/)
 
 ## 🚀 Features
 
-- **Easy Integration**: Single composer require + config publish
+- **Easy Integration**: Single composer require + automated setup script
 - **Environment-Driven**: All settings configurable via .env variables
-- **Complete Stack**: Includes OpenTelemetry Collector, Tempo, and Grafana
+- **Complete Observability Stack**: Includes OpenTelemetry Collector, Tempo, and Grafana
 - **Custom Tracing**: Simple TracerService for business logic tracing
 - **Docker Ready**: Complete observability stack with Docker Compose
 - **Laravel Integration**: Automatic service provider registration
 - **Production Ready**: Configurable sampling, batching, and resource limits
+- **Automatic Instrumentation**: PHP extension support for zero-code tracing
+- **Error Tracking**: Automatic exception recording in traces
+- **Test Routes**: Built-in test endpoints to verify integration
 
 ## 📋 Prerequisites
 
 - **PHP 8.2+**
 - **Laravel 11.0+**
 - **Docker & Docker Compose** (for observability stack)
-- **OpenTelemetry PHP Extension** (recommended for automatic instrumentation)
+- **OpenTelemetry PHP Extension** (required for automatic instrumentation)
+- **Composer** (for package installation)
 
 ## 🛠️ Installation
 
-### Step 1: Install the Package
+### Quick Setup (Recommended)
 
-#### Option A: Via Packagist (Recommended)
+Use our automated setup script for complete installation:
+
 ```bash
-composer require mumzworld/laravel-opentelemetry
+# Clone or download the package, then run:
+curl -sSL https://raw.githubusercontent.com/sahib-mmz/mumzworld-laravel-opentelemetry/main/setup-opentelemetry.sh | bash
+
+# Or if you have the package locally:
+./setup-opentelemetry.sh
 ```
 
-#### Option B: Via GitHub Repository
+### Manual Installation
+
+#### Step 1: Install the Package
+
 Add to your `composer.json`:
 ```json
 {
@@ -49,7 +65,38 @@ Then run:
 composer install
 ```
 
-### Step 2: Publish Configuration Files
+#### Step 2: Install OpenTelemetry PHP Extension
+
+The OpenTelemetry PHP extension is **required** for automatic instrumentation.
+
+**Option A: Using PECL**
+```bash
+# Install the extension
+pecl install opentelemetry
+
+# Add to your php.ini
+echo "extension=opentelemetry" >> /path/to/php.ini
+
+# Restart your web server
+sudo systemctl restart apache2  # or nginx/php-fpm
+```
+
+**Option B: Docker Environment (Recommended)**
+```dockerfile
+# Add to your Dockerfile
+RUN pecl install opentelemetry && docker-php-ext-enable opentelemetry
+
+# Or copy the provided PHP configuration
+COPY docker/php/20-otel.ini /usr/local/etc/php/conf.d/
+```
+
+**Verify Installation:**
+```bash
+php -m | grep opentelemetry
+# Should output: opentelemetry
+```
+
+#### Step 3: Publish Configuration Files
 
 ```bash
 # Publish all OpenTelemetry files
@@ -60,45 +107,56 @@ php artisan vendor:publish --tag=opentelemetry-config
 php artisan vendor:publish --tag=opentelemetry-docker
 php artisan vendor:publish --tag=opentelemetry-bootstrap
 php artisan vendor:publish --tag=opentelemetry-env
+php artisan vendor:publish --tag=opentelemetry-test-routes
 ```
 
-### Step 3: Configure Environment Variables
+#### Step 4: Configure Environment Variables
 
 Add these variables to your `.env` file:
 
 ```env
 # Core OpenTelemetry Settings
 OTEL_ENABLED=true
-OTEL_SERVICE_NAME=my-laravel-app
+OTEL_SERVICE_NAME=${APP_NAME}
 OTEL_SERVICE_VERSION=1.0.0
-OTEL_ENVIRONMENT=production
+OTEL_ENVIRONMENT=${APP_ENV}
 
 # Trace Export Settings
 OTEL_TRACES_EXPORTER=otlp
 OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
 OTEL_PROPAGATORS=baggage,tracecontext
 
-# PHP Extension Settings (if using OpenTelemetry PHP extension)
+# Sampling Configuration (adjust for production)
+OTEL_TRACES_SAMPLER=parentbased_traceidratio
+OTEL_TRACES_SAMPLER_ARG=1.0
+
+# PHP Extension Settings
 OTEL_PHP_AUTOLOAD_ENABLED=true
 OTEL_INSTRUMENTATION_ENABLED=true
+OTEL_ATTR_HOOKS_ENABLED=true
+
+# Debug Settings (disable in production)
+OTEL_DEBUG=false
 ```
 
-### Step 4: Configure PHP Extension (Optional)
+#### Step 5: Configure PHP Extension
 
-If using the OpenTelemetry PHP extension, add to your PHP INI:
+Add OpenTelemetry configuration to your PHP INI:
 
 ```ini
-; docker/php/20-otel.ini
+; docker/php/20-otel.ini or /etc/php/8.2/mods-available/opentelemetry.ini
 [opentelemetry]
+extension=opentelemetry
 otel.php_autoload_enabled=1
 otel.service_name="${OTEL_SERVICE_NAME}"
 otel.traces_exporter="${OTEL_TRACES_EXPORTER}"
 otel.exporter_otlp_endpoint="${OTEL_EXPORTER_OTLP_ENDPOINT}"
 otel.propagators="${OTEL_PROPAGATORS}"
-otel.instrumentation_enabled=true
+otel.instrumentation_enabled=1
 ```
 
-### Step 5: Update Bootstrap (Optional but Recommended)
+#### Step 6: Update Bootstrap File
 
 Add OpenTelemetry initialization to your `bootstrap/app.php`:
 
@@ -114,7 +172,7 @@ use Illuminate\Foundation\Application;
 // ... rest of your bootstrap code
 ```
 
-### Step 6: Setup Docker Observability Stack
+#### Step 7: Setup Docker Observability Stack
 
 Add the OpenTelemetry services to your `docker-compose.yml`:
 
@@ -127,31 +185,30 @@ services:
   app:
     environment:
       # OpenTelemetry configuration for your Laravel app
-      OTEL_SERVICE_NAME: my-laravel-app
-      OTEL_TRACES_EXPORTER: otlp
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
-      OTEL_PROPAGATORS: baggage,tracecontext
-    networks:
-      - app-network
-```
-
-Or merge the services directly into your existing `docker-compose.yml`.
-
-**Important**: Make sure your app service has the OpenTelemetry environment variables:
-```yaml
-services:
-  app:
-    environment:
       OTEL_SERVICE_NAME: ${OTEL_SERVICE_NAME:-my-laravel-app}
       OTEL_TRACES_EXPORTER: ${OTEL_TRACES_EXPORTER:-otlp}
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-http://otel-collector:4318}
+      OTEL_EXPORTER_OTLP_PROTOCOL: ${OTEL_EXPORTER_OTLP_PROTOCOL:-http/protobuf}
       OTEL_PROPAGATORS: ${OTEL_PROPAGATORS:-baggage,tracecontext}
+      OTEL_PHP_AUTOLOAD_ENABLED: ${OTEL_PHP_AUTOLOAD_ENABLED:-true}
+    networks:
+      - app-network
+    depends_on:
+      - otel-collector
+
+networks:
+  app-network:
+    external: true
 ```
 
-### Step 7: Start the Observability Stack
+#### Step 8: Start the Observability Stack
 
 ```bash
+# Start the observability stack
 docker-compose up -d otel-collector tempo grafana
+
+# Start your application
+docker-compose up -d app
 ```
 
 ## 🎯 Usage Examples
@@ -253,51 +310,38 @@ class ProductController extends Controller
 }
 ```
 
-### Service Integration
+### Database Query Tracing
 
 ```php
 <?php
 
-namespace App\Services;
+namespace App\Repositories;
 
 use Mumzworld\LaravelOpenTelemetry\Services\TracerService;
 
-class PaymentService
+class ProductRepository
 {
     public function __construct(
-        private TracerService $tracerService,
-        private PaymentGateway $gateway
+        private TracerService $tracerService
     ) {}
 
-    public function processPayment(Order $order, array $paymentData): PaymentResult
+    public function findWithFilters(array $filters): Collection
     {
-        return $this->tracerService->trace('payment.process', function () use ($order, $paymentData) {
+        return $this->tracerService->trace('product.query.filtered', function () use ($filters) {
+            $query = Product::query();
             
-            // Validate payment data
-            $this->tracerService->trace('payment.validate', function () use ($paymentData) {
-                $this->validatePaymentData($paymentData);
-            });
+            if (isset($filters['category'])) {
+                $query->where('category_id', $filters['category']);
+            }
             
-            // Call external payment gateway
-            $result = $this->tracerService->trace('payment.gateway.charge', function () use ($order, $paymentData) {
-                return $this->gateway->charge($order->total, $paymentData);
-            }, [
-                'payment.amount' => $order->total,
-                'payment.currency' => $order->currency,
-                'payment.method' => $paymentData['method']
-            ]);
+            if (isset($filters['price_range'])) {
+                $query->whereBetween('price', $filters['price_range']);
+            }
             
-            // Update order status
-            $this->tracerService->trace('order.status.update', function () use ($order, $result) {
-                $order->update(['status' => $result->isSuccessful() ? 'paid' : 'failed']);
-            });
-            
-            return $result;
-            
+            return $query->get();
         }, [
-            'order.id' => $order->id,
-            'order.total' => $order->total,
-            'payment.method' => $paymentData['method']
+            'query.filters' => json_encode($filters),
+            'query.type' => 'product_search'
         ]);
     }
 }
@@ -353,6 +397,67 @@ class ProcessOrderJob implements ShouldQueue
 }
 ```
 
+## 🧪 Testing the Integration
+
+The package includes test routes to verify your OpenTelemetry setup:
+
+### Test Routes
+
+```bash
+# Basic functionality test
+curl http://your-host/api/opentelemetry/test
+
+# Configuration verification
+curl http://your-host/api/opentelemetry/config
+
+# Error handling test
+curl http://your-host/api/opentelemetry/error
+
+# Nested spans test
+curl http://your-host/api/opentelemetry/nested
+```
+
+### Enable Test Routes
+
+Add to your `routes/api.php` (development only):
+
+```php
+// OpenTelemetry test routes (remove in production)
+if (app()->environment(['local', 'testing'])) {
+    require __DIR__ . '/opentelemetry-test.php';
+}
+```
+
+### Expected Test Responses
+
+**Basic Test (`/api/opentelemetry/test`):**
+```json
+{
+    "message": "OpenTelemetry tracing is working!",
+    "service": "my-laravel-app",
+    "endpoint": "http://otel-collector:4318",
+    "timestamp": "2024-03-15T10:30:00.000000Z",
+    "trace_enabled": true
+}
+```
+
+**Configuration Test (`/api/opentelemetry/config`):**
+```json
+{
+    "enabled": true,
+    "service": {
+        "name": "my-laravel-app",
+        "version": "1.0.0",
+        "environment": "local"
+    },
+    "environment_variables": {
+        "OTEL_SERVICE_NAME": "my-laravel-app",
+        "OTEL_TRACES_EXPORTER": "otlp",
+        "OTEL_EXPORTER_OTLP_ENDPOINT": "http://otel-collector:4318"
+    }
+}
+```
+
 ## 🔧 Configuration Options
 
 ### Environment Variables
@@ -368,6 +473,8 @@ class ProcessOrderJob implements ShouldQueue
 | `OTEL_PROPAGATORS` | `baggage,tracecontext` | Trace propagators |
 | `OTEL_TRACES_SAMPLER` | `parentbased_traceidratio` | Sampling strategy |
 | `OTEL_TRACES_SAMPLER_ARG` | `1.0` | Sampling ratio (0.0-1.0) |
+| `OTEL_PHP_AUTOLOAD_ENABLED` | `true` | Enable PHP auto-instrumentation |
+| `OTEL_INSTRUMENTATION_ENABLED` | `true` | Enable instrumentation |
 
 ### Configuration File
 
@@ -389,6 +496,13 @@ return [
         'sampler_arg' => env('OTEL_TRACES_SAMPLER_ARG', 1.0),
     ],
     
+    'exporter' => [
+        'otlp' => [
+            'endpoint' => env('OTEL_EXPORTER_OTLP_ENDPOINT', 'http://otel-collector:4318'),
+            'protocol' => env('OTEL_EXPORTER_OTLP_PROTOCOL', 'http/protobuf'),
+        ],
+    ],
+    
     // ... more configuration options
 ];
 ```
@@ -404,61 +518,57 @@ The package includes a complete observability stack:
 docker-compose up -d otel-collector tempo grafana
 
 # Check service health
-curl http://localhost:13133/  # Collector health check
-curl http://localhost:3200/ready  # Tempo health check
-curl http://localhost:3000/  # Grafana UI
+curl http://your-host:13133/  # Collector health check
+curl http://your-host:3200/ready  # Tempo health check
+curl http://your-host:3000/  # Grafana UI
 ```
 
 ### Service URLs
 
-- **Grafana Dashboard**: http://localhost:3000 (admin/admin)
-- **Tempo API**: http://localhost:3200
-- **Collector Health**: http://localhost:13133
-
-### Integration with Existing Docker Compose
-
-Add to your existing `docker-compose.yml`:
-
-```yaml
-services:
-  app:
-    environment:
-      OTEL_SERVICE_NAME: my-app
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
-    depends_on:
-      - otel-collector
-
-# Include OpenTelemetry stack
-include:
-  - docker/opentelemetry/docker-compose.opentelemetry.yml
-```
+- **Grafana Dashboard**: http://your-host:3000 (admin/admin)
+- **Tempo API**: http://your-host:3200
+- **Collector Health**: http://your-host:13133
+- **Test Routes**: http://your-host/api/opentelemetry/test
 
 ## 📊 Viewing Traces
 
 ### Grafana Dashboard
 
-1. Open Grafana at http://localhost:3000
+1. Open Grafana at http://your-host:3000
 2. Login with admin/admin
 3. Go to "Explore" → Select "Tempo" datasource
 4. Search for traces by:
-   - Service name: `my-laravel-app`
-   - Operation name: `user.create`
-   - Tags: `http.method=POST`
+   - Service name: `{service.name="your-service-name"}`
+   - HTTP operations: `{service.name="your-service-name" && name=~".*GET.*"}`
+   - Slow traces: `{service.name="your-service-name" && duration>100ms}`
 
 ### Sample Trace Queries
 
 ```
 # Find all traces for a specific service
-{service.name="my-laravel-app"}
+{service.name="your-service-name"}
+# or
+{resource.service.name="your-service-name"}
 
 # Find traces with errors
-{service.name="my-laravel-app"} | select(status=error)
+{service.name="your-service-name" && status=error}
+# or
+{resource.service.name="your-service-name" && status=error}
 
-# Find slow traces (duration > 1s)
-{service.name="my-laravel-app"} | select(duration>1s)
+# Find slow traces (duration > 100ms)
+{service.name="your-service-name" && duration>100ms}
+# or
+{resource.service.name="your-service-name" && duration>100ms}
 
-# Find traces for specific operations
-{service.name="my-laravel-app" span.name="user.create"}
+# Find traces for specific HTTP methods
+{service.name="your-service-name" && name=~".*GET.*"}
+# or
+{resource.service.name="your-service-name" && name=~".*GET.*"}
+
+# Find traces for specific endpoints
+{service.name="your-service-name" && name=~".*api/users.*"}
+# or
+{resource.service.name="your-service-name" && name=~".*api/users.*"}
 ```
 
 ## 🔍 Troubleshooting
@@ -484,13 +594,10 @@ Verify OpenTelemetry extension is installed:
 php -m | grep opentelemetry
 ```
 
-Install the extension:
+Check PHP configuration:
 ```bash
-# Using PECL
-pecl install opentelemetry
-
-# Or download from releases
-# https://github.com/open-telemetry/opentelemetry-php-instrumentation/releases
+php --ini
+php -i | grep opentelemetry
 ```
 
 **3. Traces not being exported**
@@ -503,32 +610,21 @@ php artisan tinker
 >>> config('opentelemetry.exporter.otlp.endpoint')
 ```
 
+Test with debug mode:
+```bash
+# Add to .env
+OTEL_DEBUG=true
+APP_DEBUG=true
+
+# Check logs
+tail -f storage/logs/laravel.log
+```
+
 **4. High memory usage**
 
 Adjust sampling rate:
 ```env
 OTEL_TRACES_SAMPLER_ARG=0.1  # Sample 10% of traces
-```
-
-Configure memory limits in collector:
-```yaml
-# docker/opentelemetry/otel-collector/config.yaml
-processors:
-  memory_limiter:
-    limit_mib: 256  # Reduce memory limit
-```
-
-### Debug Mode
-
-Enable debug logging:
-```env
-OTEL_DEBUG=true
-APP_DEBUG=true
-```
-
-Check Laravel logs:
-```bash
-tail -f storage/logs/laravel.log
 ```
 
 ## 🚀 Production Deployment
@@ -542,65 +638,51 @@ OTEL_SERVICE_NAME=my-production-app
 OTEL_ENVIRONMENT=production
 OTEL_TRACES_SAMPLER_ARG=0.1  # Sample 10% of traces
 
-# Use external collector
-OTEL_EXPORTER_OTLP_ENDPOINT=https://otel-collector.example.com:4318
+# Use production collector
+OTEL_EXPORTER_OTLP_ENDPOINT=http://your-production-collector:4318
+OTEL_EXPORTER_OTLP_PROTOCOL=http/protobuf
+
+# Disable debug
+OTEL_DEBUG=false
 ```
 
 ### Performance Considerations
 
-1. **Sampling**: Use appropriate sampling rates for production
+1. **Sampling**: Use appropriate sampling rates for production (0.1 = 10%)
 2. **Batching**: Configure batch processors in collector
 3. **Resource Limits**: Set memory and CPU limits
 4. **Network**: Use gRPC for better performance
 5. **Storage**: Configure appropriate retention policies
 
-### Security
+## 🛠️ Automated Setup Script
 
-1. **Authentication**: Secure Grafana with proper authentication
-2. **Network**: Use private networks for internal communication
-3. **TLS**: Enable TLS for external endpoints
-4. **Access Control**: Restrict access to observability tools
+Use the included setup script for quick installation:
 
-## 📚 Advanced Usage
+```bash
+# Make the script executable
+chmod +x setup-opentelemetry.sh
 
-### Custom Exporters
-
-Configure multiple exporters:
-
-```yaml
-# docker/opentelemetry/otel-collector/config.yaml
-exporters:
-  otlphttp/tempo:
-    endpoint: http://tempo:4317
-  jaeger:
-    endpoint: jaeger:14250
-  zipkin:
-    endpoint: http://zipkin:9411/api/v2/spans
-
-service:
-  pipelines:
-    traces:
-      exporters: [otlphttp/tempo, jaeger, zipkin]
+# Run the setup script
+./setup-opentelemetry.sh
 ```
 
-### Custom Attributes
+The script will:
+- ✅ Install the package via Composer
+- ✅ Publish all configuration files
+- ✅ Add environment variables to .env
+- ✅ Update bootstrap/app.php
+- ✅ Configure Docker Compose
+- ✅ Add test routes (optional)
+- ✅ Check PHP extension installation
+- ✅ Start observability stack (optional)
 
-Add global attributes:
+### Script Features
 
-```env
-OTEL_RESOURCE_ATTRIBUTES=service.name=my-app,service.version=1.0.0,deployment.environment=production,team=backend
-```
-
-### Conditional Tracing
-
-```php
-// Only trace in specific environments
-if (app()->environment(['production', 'staging'])) {
-    $tracerService->trace('expensive.operation', $callback);
-} else {
-    $callback();
-}
-```
+- **Interactive**: Prompts for optional components
+- **Safe**: Creates backups before modifying files
+- **Comprehensive**: Handles all setup steps automatically
+- **Colored Output**: Clear status indicators
+- **Error Handling**: Stops on errors with helpful messages
 
 ## 🤝 Contributing
 
