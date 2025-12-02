@@ -8,7 +8,7 @@ A comprehensive OpenTelemetry integration package for Laravel applications that 
 
 ## 🚀 Features
 
-- **Easy Integration**: Single composer require + automated setup script
+- **Easy Integration**: Single composer require + artisan publish
 - **Environment-Driven**: All settings configurable via .env variables
 - **Complete Observability Stack**: Includes OpenTelemetry Collector, Tempo, and Grafana
 - **Custom Tracing**: Simple TracerService for business logic tracing
@@ -21,7 +21,7 @@ A comprehensive OpenTelemetry integration package for Laravel applications that 
 
 ## 📋 Prerequisites
 
-- **PHP 8.2+**
+- **PHP 8.4+** (Laravel 11 with latest Symfony dependencies requires PHP 8.4)
 - **Laravel 11.0+**
 - **Docker & Docker Compose** (for observability stack)
 - **OpenTelemetry PHP Extension** (required for automatic instrumentation)
@@ -29,33 +29,101 @@ A comprehensive OpenTelemetry integration package for Laravel applications that 
 
 ## 🛠️ Installation
 
-### Quick Setup (Recommended)
+> ⚠️ **CRITICAL**: The OpenTelemetry PHP extension must be installed BEFORE running `composer require`. The package installation will fail without it.
 
-Use our automated setup script for complete installation:
+### Docker Environment (Recommended)
 
-```bash
-# Clone or download the package, then run:
-curl -sSL https://raw.githubusercontent.com/mumzworld-tech/laravel-opentelemetry-pkg/main/setup-opentelemetry.sh | bash
+> **For Fresh Laravel Projects**: If you don't have Docker setup yet, create these files first:
 
-# Or if you have the package locally:
-./setup-opentelemetry.sh
+**Create `Dockerfile`:**
+```dockerfile
+FROM php:8.4-fpm
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    git \
+    curl \
+    libpng-dev \
+    libonig-dev \
+    libxml2-dev \
+    zip \
+    unzip
+
+# Install PHP extensions
+RUN docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd
+
+# Install OpenTelemetry extension
+RUN pecl install opentelemetry && docker-php-ext-enable opentelemetry
+
+# Install Composer
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
+# Set working directory
+WORKDIR /var/www
+
+# Copy application files
+COPY . .
+
+# Install dependencies
+RUN composer install
+
+# Set permissions
+RUN chown -R www-data:www-data /var/www
 ```
 
-### Manual Installation
+**Create `docker-compose.yml`:**
+```yaml
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/var/www
+    command: php artisan serve --host=0.0.0.0 --port=8000
+    networks:
+      - app-network
 
-#### Step 1: Install the Package
+networks:
+  app-network:
+    driver: bridge
+```
+
+#### Step 1: Add Extension to Dockerfile (If Docker Already Exists)
+
+Add the OpenTelemetry extension to your Dockerfile:
+
+```dockerfile
+# Install OpenTelemetry extension
+RUN pecl install opentelemetry && docker-php-ext-enable opentelemetry
+
+# Or copy the provided PHP configuration
+COPY docker/php/20-otel.ini /usr/local/etc/php/conf.d/
+```
+
+#### Step 2: Rebuild Docker Container
 
 ```bash
-composer require mumzworld/laravel-opentelemetry
+docker-compose build app
+```
+
+#### Step 3: Install the Package
+
+```bash
+# Start the container
+docker-compose up -d app
+
+# Install the package inside the container
+docker-compose exec app composer require mumzworld/laravel-opentelemetry
 ```
 
 *Note: The service provider is automatically registered via Laravel's package auto-discovery.*
 
-#### Step 2: Install OpenTelemetry PHP Extension
+### Non-Docker Environment
 
-The OpenTelemetry PHP extension is **required** for automatic instrumentation.
+#### Step 1: Install OpenTelemetry PHP Extension
 
-**Option A: Using PECL**
+**Using PECL (Most Common):**
 ```bash
 # Install the extension
 pecl install opentelemetry
@@ -67,23 +135,38 @@ echo "extension=opentelemetry" >> /path/to/php.ini
 sudo systemctl restart apache2  # or nginx/php-fpm
 ```
 
-**Option B: Docker Environment (Recommended)**
-```dockerfile
-# Add to your Dockerfile
-RUN pecl install opentelemetry && docker-php-ext-enable opentelemetry
-
-# Or copy the provided PHP configuration
-COPY docker/php/20-otel.ini /usr/local/etc/php/conf.d/
-```
-
 **Verify Installation:**
 ```bash
 php -m | grep opentelemetry
 # Should output: opentelemetry
 ```
 
-#### Step 3: Publish Configuration Files
+#### Step 2: Install the Package
 
+```bash
+composer require mumzworld/laravel-opentelemetry
+```
+
+*Note: The service provider is automatically registered via Laravel's package auto-discovery.*
+
+#### Step 4: Publish Configuration Files
+
+> **Note**: The publish command creates a `.env.opentelemetry.example` file as a reference. You can safely delete this file after copying the variables to your `.env` file.
+
+**For Docker Environment:**
+```bash
+# Publish all OpenTelemetry files
+docker-compose exec app php artisan vendor:publish --provider="Mumzworld\LaravelOpenTelemetry\LaravelOpenTelemetryServiceProvider"
+
+# Or publish specific components
+docker-compose exec app php artisan vendor:publish --tag=opentelemetry-config
+docker-compose exec app php artisan vendor:publish --tag=opentelemetry-docker
+docker-compose exec app php artisan vendor:publish --tag=opentelemetry-bootstrap
+docker-compose exec app php artisan vendor:publish --tag=opentelemetry-env
+docker-compose exec app php artisan vendor:publish --tag=opentelemetry-test-routes
+```
+
+**For Non-Docker Environment:**
 ```bash
 # Publish all OpenTelemetry files
 php artisan vendor:publish --provider="Mumzworld\LaravelOpenTelemetry\LaravelOpenTelemetryServiceProvider"
@@ -96,7 +179,7 @@ php artisan vendor:publish --tag=opentelemetry-env
 php artisan vendor:publish --tag=opentelemetry-test-routes
 ```
 
-#### Step 4: Configure Environment Variables
+#### Step 5: Configure Environment Variables
 
 Add these variables to your `.env` file:
 
@@ -126,7 +209,7 @@ OTEL_ATTR_HOOKS_ENABLED=true
 OTEL_DEBUG=false
 ```
 
-#### Step 5: Setup Docker Observability Stack
+#### Step 6: Setup Docker Observability Stack
 
 Add the OpenTelemetry services to your `docker-compose.yml`:
 
@@ -155,7 +238,7 @@ networks:
     external: true
 ```
 
-#### Step 6: Start the Observability Stack
+#### Step 7: Start the Observability Stack
 
 ```bash
 # Start the observability stack
@@ -165,7 +248,7 @@ docker-compose up -d otel-collector tempo grafana
 docker-compose up -d app
 ```
 
-#### Step 7: Verify Installation
+#### Step 8: Verify Installation
 
 ```bash
 # Check if services are running
@@ -176,6 +259,62 @@ curl http://your-host/api/opentelemetry/test
 
 # Check Grafana is accessible
 curl http://your-host:3000
+```
+
+## 🔍 Troubleshooting
+
+### Common Issues
+
+**1. No traces appearing in Grafana**
+
+Check if services are running:
+```bash
+docker-compose ps otel-collector tempo grafana
+```
+
+Check collector logs:
+```bash
+docker-compose logs otel-collector
+```
+
+**2. PHP Extension not loading**
+
+Verify OpenTelemetry extension is installed:
+```bash
+php -m | grep opentelemetry
+```
+
+Check PHP configuration:
+```bash
+php --ini
+php -i | grep opentelemetry
+```
+
+**3. Traces not being exported**
+
+Check environment variables:
+```bash
+php artisan tinker
+>>> config('opentelemetry.enabled')
+>>> config('opentelemetry.service.name')
+>>> config('opentelemetry.exporter.otlp.endpoint')
+```
+
+Test with debug mode:
+```bash
+# Add to .env
+OTEL_DEBUG=true
+APP_DEBUG=true
+
+# Check logs
+tail -f storage/logs/laravel.log
+```
+
+**4. High memory usage**
+
+Adjust sampling rate:
+```env
+OTEL_TRACES_SAMPLER_ARG=0.1  # Sample 10% of traces
 ```
 
 ## 🎯 Usage Examples
@@ -538,59 +677,31 @@ curl http://your-host:3000/  # Grafana UI
 {resource.service.name="your-service-name" && name=~".*api/users.*"}
 ```
 
-## 🔍 Troubleshooting
+### Runtime Issues
 
-### Common Issues
-
-**1. No traces appearing in Grafana**
-
-Check if services are running:
+**No traces in Grafana:**
 ```bash
+# Check services
 docker-compose ps otel-collector tempo grafana
-```
 
-Check collector logs:
-```bash
+# Check collector logs
 docker-compose logs otel-collector
 ```
 
-**2. PHP Extension not loading**
-
-Verify OpenTelemetry extension is installed:
+**Traces not exported:**
 ```bash
-php -m | grep opentelemetry
-```
-
-Check PHP configuration:
-```bash
-php --ini
-php -i | grep opentelemetry
-```
-
-**3. Traces not being exported**
-
-Check environment variables:
-```bash
+# Verify configuration
 php artisan tinker
 >>> config('opentelemetry.enabled')
 >>> config('opentelemetry.service.name')
->>> config('opentelemetry.exporter.otlp.endpoint')
+
+# Enable debug mode
+# Add to .env: OTEL_DEBUG=true
 ```
 
-Test with debug mode:
-```bash
-# Add to .env
-OTEL_DEBUG=true
-APP_DEBUG=true
-
-# Check logs
-tail -f storage/logs/laravel.log
-```
-
-**4. High memory usage**
-
-Adjust sampling rate:
+**High memory usage:**
 ```env
+# Reduce sampling in .env
 OTEL_TRACES_SAMPLER_ARG=0.1  # Sample 10% of traces
 ```
 
@@ -620,36 +731,6 @@ OTEL_DEBUG=false
 3. **Resource Limits**: Set memory and CPU limits
 4. **Network**: Use gRPC for better performance
 5. **Storage**: Configure appropriate retention policies
-
-## 🛠️ Automated Setup Script
-
-Use the included setup script for quick installation:
-
-```bash
-# Make the script executable
-chmod +x setup-opentelemetry.sh
-
-# Run the setup script
-./setup-opentelemetry.sh
-```
-
-The script will:
-- ✅ Install the package via Composer
-- ✅ Publish all configuration files
-- ✅ Add environment variables to .env
-- ✅ Update bootstrap/app.php
-- ✅ Configure Docker Compose
-- ✅ Add test routes (optional)
-- ✅ Check PHP extension installation
-- ✅ Start observability stack (optional)
-
-### Script Features
-
-- **Interactive**: Prompts for optional components
-- **Safe**: Creates backups before modifying files
-- **Comprehensive**: Handles all setup steps automatically
-- **Colored Output**: Clear status indicators
-- **Error Handling**: Stops on errors with helpful messages
 
 ## 🤝 Contributing
 

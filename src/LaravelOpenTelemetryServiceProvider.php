@@ -57,7 +57,11 @@ class LaravelOpenTelemetryServiceProvider extends ServiceProvider
 
         // Publish Docker configuration files
         $this->publishes([
-            __DIR__ . '/../docker' => base_path('docker/opentelemetry'),
+            __DIR__ . '/../docker/docker-compose.opentelemetry.yml' => base_path('docker/opentelemetry/docker-compose.opentelemetry.yml'),
+            __DIR__ . '/../docker/otel-collector/config.yaml' => base_path('docker/opentelemetry/otel-collector/config.yaml'),
+            __DIR__ . '/../docker/tempo/tempo.yaml' => base_path('docker/opentelemetry/tempo/tempo.yaml'),
+            __DIR__ . '/../docker/grafana' => base_path('docker/opentelemetry/grafana'),
+            __DIR__ . '/../docker/php' => base_path('docker/opentelemetry/php'),
         ], 'opentelemetry-docker');
 
         // Publish OpenTelemetry bootstrap file
