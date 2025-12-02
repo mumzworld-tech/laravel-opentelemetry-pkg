@@ -35,7 +35,7 @@ Use our automated setup script for complete installation:
 
 ```bash
 # Clone or download the package, then run:
-curl -sSL https://raw.githubusercontent.com/sahib-mmz/mumzworld-laravel-opentelemetry/main/setup-opentelemetry.sh | bash
+curl -sSL https://raw.githubusercontent.com/mumzworld-tech/laravel-opentelemetry-pkg/main/setup-opentelemetry.sh | bash
 
 # Or if you have the package locally:
 ./setup-opentelemetry.sh
@@ -45,25 +45,11 @@ curl -sSL https://raw.githubusercontent.com/sahib-mmz/mumzworld-laravel-opentele
 
 #### Step 1: Install the Package
 
-Add to your `composer.json`:
-```json
-{
-    "repositories": [
-        {
-            "type": "vcs",
-            "url": "https://github.com/sahib-mmz/mumzworld-laravel-opentelemetry"
-        }
-    ],
-    "require": {
-        "mumzworld/laravel-opentelemetry": "^1.0"
-    }
-}
+```bash
+composer require mumzworld/laravel-opentelemetry
 ```
 
-Then run:
-```bash
-composer install
-```
+*Note: The service provider is automatically registered via Laravel's package auto-discovery.*
 
 #### Step 2: Install OpenTelemetry PHP Extension
 
@@ -140,39 +126,7 @@ OTEL_ATTR_HOOKS_ENABLED=true
 OTEL_DEBUG=false
 ```
 
-#### Step 5: Configure PHP Extension
-
-Add OpenTelemetry configuration to your PHP INI:
-
-```ini
-; docker/php/20-otel.ini or /etc/php/8.2/mods-available/opentelemetry.ini
-[opentelemetry]
-extension=opentelemetry
-otel.php_autoload_enabled=1
-otel.service_name="${OTEL_SERVICE_NAME}"
-otel.traces_exporter="${OTEL_TRACES_EXPORTER}"
-otel.exporter_otlp_endpoint="${OTEL_EXPORTER_OTLP_ENDPOINT}"
-otel.propagators="${OTEL_PROPAGATORS}"
-otel.instrumentation_enabled=1
-```
-
-#### Step 6: Update Bootstrap File
-
-Add OpenTelemetry initialization to your `bootstrap/app.php`:
-
-```php
-<?php
-
-// Initialize OpenTelemetry early for automatic tracing
-if (extension_loaded('opentelemetry') && ($_ENV['OTEL_ENABLED'] ?? 'true') === 'true') {
-    require_once __DIR__ . '/otel.php';
-}
-
-use Illuminate\Foundation\Application;
-// ... rest of your bootstrap code
-```
-
-#### Step 7: Setup Docker Observability Stack
+#### Step 5: Setup Docker Observability Stack
 
 Add the OpenTelemetry services to your `docker-compose.yml`:
 
@@ -201,7 +155,7 @@ networks:
     external: true
 ```
 
-#### Step 8: Start the Observability Stack
+#### Step 6: Start the Observability Stack
 
 ```bash
 # Start the observability stack
@@ -209,6 +163,19 @@ docker-compose up -d otel-collector tempo grafana
 
 # Start your application
 docker-compose up -d app
+```
+
+#### Step 7: Verify Installation
+
+```bash
+# Check if services are running
+docker-compose ps otel-collector tempo grafana
+
+# Test the integration (if test routes are published)
+curl http://your-host/api/opentelemetry/test
+
+# Check Grafana is accessible
+curl http://your-host:3000
 ```
 
 ## 🎯 Usage Examples
