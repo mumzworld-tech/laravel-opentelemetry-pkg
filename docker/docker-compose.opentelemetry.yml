@@ -7,7 +7,7 @@ services:
     image: ${OTEL_COLLECTOR_IMAGE:-otel/opentelemetry-collector:0.101.0}
     command: ["--config=/etc/otel-collector-config.yaml"]
     volumes:
-      - ./docker/opentelemetry/otel-collector/config.yaml:/etc/otel-collector-config.yaml:ro
+      - ${PWD}/docker/opentelemetry/otel-collector/config.yaml:/etc/otel-collector-config.yaml:ro
     ports:
       - "${OTEL_COLLECTOR_HTTP_PORT:-4318}:4318"  # HTTP OTLP receiver
       - "${OTEL_COLLECTOR_GRPC_PORT:-4317}:4317"  # gRPC OTLP receiver
@@ -22,7 +22,7 @@ services:
     image: ${TEMPO_IMAGE:-grafana/tempo:2.4.1}
     command: ["-config.file=/etc/tempo.yaml"]
     volumes:
-      - ./docker/opentelemetry/tempo/tempo.yaml:/etc/tempo.yaml:ro
+      - ${PWD}/docker/opentelemetry/tempo/tempo.yaml:/etc/tempo.yaml:ro
       - tempo-data:/var/tempo
     ports:
       - "${TEMPO_PORT:-3200}:3200"  # HTTP API for Grafana queries

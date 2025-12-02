@@ -235,12 +235,15 @@ services:
 
 networks:
   app-network:
-    external: true
+    driver: bridge
 ```
 
 #### Step 7: Start the Observability Stack
 
 ```bash
+# Create the external network (required for Docker services)
+docker network create app-network
+
 # Start the observability stack
 docker-compose up -d otel-collector tempo grafana
 
@@ -254,12 +257,18 @@ docker-compose up -d app
 # Check if services are running
 docker-compose ps otel-collector tempo grafana
 
-# Test the integration (if test routes are published)
-curl http://your-host/api/opentelemetry/test
-
 # Check Grafana is accessible
-curl http://your-host:3000
+curl http://localhost:3000
+
+# Test the integration (if test routes are published and enabled)
+curl http://localhost:8000/api/opentelemetry/test
+curl http://localhost:8000/api/opentelemetry/config
 ```
+
+**If test routes return 404:**
+1. Ensure you've added the test route inclusion to `routes/api.php`
+2. Clear route cache: `docker-compose exec app php artisan route:clear`
+3. Restart the app container: `docker-compose restart app`
 
 ## 🔍 Troubleshooting
 
@@ -533,6 +542,8 @@ if (app()->environment(['local', 'testing'])) {
     require __DIR__ . '/opentelemetry-test.php';
 }
 ```
+
+> **Note**: After testing is complete, you can safely remove the `opentelemetry-test.php` file and the test route inclusion from `routes/api.php`. These files are only for setup verification and are not needed in production.
 
 ### Expected Test Responses
 
